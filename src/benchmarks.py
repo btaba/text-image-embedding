@@ -190,13 +190,14 @@ def benchmark_func(vectors_path, dataset, encoding_name, split, X_c, Y_c):
 @click.argument('vectors_path')
 @click.argument('dataset')
 @click.argument('split')
-def run_benchmark(vectors_path, dataset, split):
+@click.argument('encoding_name')
+def run_benchmark(vectors_path, dataset, split, encoding_name):
     vectors_path = BASE_PATH / dataset / vectors_path
 
     X_c = np.load(vectors_path / ('{}_X_c.npy'.format(split)))  # image
     Y_c = np.load(vectors_path / ('{}_Y_c.npy'.format(split)))  # text
 
-    benchmark_func(vectors_path, dataset, split, X_c, Y_c)
+    benchmark_func(vectors_path, dataset, encoding_name, split, X_c, Y_c)
 
 
 cli.add_command(run_benchmark)

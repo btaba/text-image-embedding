@@ -9,7 +9,7 @@ DATA_NAME = os.environ.get('DATA_PATH', 'data-text-image-embeddings')
 BASE_PATH = Path.home() / DATA_NAME
 
 
-def open_dataset(dataset_name='', data_path=BASE_PATH, ):
+def open_dataset(dataset_name='', data_path=BASE_PATH):
     """
     Create a dictionary of filename: path for a given dataset
     """
