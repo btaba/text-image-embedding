@@ -2,7 +2,7 @@
 
 References:
 
-- https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5118469/
+- https://web.stanford.edu/~lmackey/stats306b/doc/stats306b-spring14-lecture13_scribed.pdf
 
 """
 
