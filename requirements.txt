@@ -1,0 +1,9 @@
+pytest
+click
+keras
+numpy
+scipy
+tensorflow
+gensim
+nltk
+tabulate
