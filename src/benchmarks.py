@@ -22,7 +22,7 @@ def load_split_image_ids(split, dataset, encoding_name):
     # read in image-IDs for each row
     json_file = BASE_PATH / dataset / encoding_name /\
         '{}-encoded-captions-and-images.json'.format(split)
-    image_ids = [image['id'] for image in stream_json(str(json_file))]
+    image_ids = [image['id'] for image in stream_json(json_file)]
 
     idx2img = {i: image_id for i, image_id in enumerate(image_ids)}
     img2idx = {image_id: i for i, image_id in enumerate(image_ids)}
@@ -32,8 +32,8 @@ def load_split_image_ids(split, dataset, encoding_name):
 def load_idx_to_captions(split, dataset, encoding_name):
     json_file = BASE_PATH / dataset / encoding_name /\
         '{}-encoded-captions-and-images.json'.format(split)
-    idx2captions = {i: image['text'] for i, image in enumerate(stream_json(str(json_file)))}
-    img2captions = {image['id']: image['text'] for image in stream_json(str(json_file))}
+    idx2captions = {i: image['text'] for i, image in enumerate(stream_json(json_file))}
+    img2captions = {image['id']: image['text'] for image in stream_json(json_file)}
     return idx2captions, img2captions
 
 
@@ -122,7 +122,7 @@ def rank_benchmarks(neighbors_model, C, n_neighbors, ground_truth_ids, idx2img):
 def benchmark_func(vectors_path, dataset, encoding_name, split, X_c, Y_c):
 
     # Get indexes to a split's image ids (ground truth)
-    idx2img, img2idx, image_ids = load_split_image_ids(split, dataset)
+    idx2img, img2idx, image_ids = load_split_image_ids(split, dataset, encoding_name)
 
     # X_c is not unique, so we need to make it unique (image:text is 1:Many)
     ordered_image_idx_set = []
@@ -194,8 +194,8 @@ def benchmark_func(vectors_path, dataset, encoding_name, split, X_c, Y_c):
 def run_benchmark(vectors_path, dataset, split, encoding_name):
     vectors_path = BASE_PATH / dataset / vectors_path
 
-    X_c = np.load(vectors_path / ('{}_X_c.npy'.format(split)))  # image
-    Y_c = np.load(vectors_path / ('{}_Y_c.npy'.format(split)))  # text
+    X_c = np.load(vectors_path / encoding_name / ('{}_X_c.npy'.format(split)))  # image
+    Y_c = np.load(vectors_path / encoding_name / ('{}_Y_c.npy'.format(split)))  # text
 
     benchmark_func(vectors_path, dataset, encoding_name, split, X_c, Y_c)
 
