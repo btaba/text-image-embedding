@@ -12,5 +12,4 @@ To get started, first get the data by going to `data` and running the shell scri
 
 # Collaborators
 
-Baruch T
-Neel V
+Baruch T, Neel V
