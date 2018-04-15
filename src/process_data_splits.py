@@ -83,6 +83,8 @@ def flickr30k():
 
 
 def mscoco():
+    print('Processing MSCOC')
+
     # Captions
     all_images = []
     captions = defaultdict(dict)
@@ -125,6 +127,8 @@ def mscoco():
     splits = shuffle_image_splits(all_images, num_images=5000)
     with (BASE_PATH / 'mscoco' / 'more_sensible_splits.json').open('w') as f:
         json.dump(splits, f)
+
+    print('Done with MSCOC')
 
 
 if __name__ == '__main__':

@@ -83,6 +83,6 @@ class CCA:
             X_c, Y_c = X_c * self.r, Y_c * self.r
 
         if norm:
-            X_c, Y_c = X_c / np.sum(np.square(X_c), axis=1), Y_c / np.sum(np.square(Y_c), axis=1)
+            X_c, Y_c = X_c / np.sum(np.square(X_c), axis=0), Y_c / np.sum(np.square(Y_c), axis=0)
 
         return X_c, Y_c

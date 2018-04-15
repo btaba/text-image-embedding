@@ -11,6 +11,7 @@ from sklearn.preprocessing import FunctionTransformer
 from sklearn.pipeline import Pipeline
 from keras.preprocessing import image
 from keras.applications import vgg19
+from keras.models import Model
 
 from utils.data_utils import open_dataset, stream_json
 
@@ -78,8 +79,8 @@ def _average_vecs(X, word_vecs):
                 vec.append(word_vecs[token])
 
         if len(vec) == 0:
-            vecs.append(np.zeros(vec_length))
-        
+            vec.append(np.zeros(vec_length))
+
         vecs.append(np.mean(vec, axis=0))
 
     return np.array(vecs)
@@ -105,14 +106,14 @@ class AverageWordTokenTransformer(FunctionTransformer):
 def fasttext_vectorizer(stopwords_set=STOPWORDS_SET):
     vectorizer = Pipeline([
         ('tokenizer', TokenizeTransformer(stopwords_set=stopwords_set)),
-        ('vectorizer', AverageWordTokenTransformer(load_numberbatch_vecs()))])
+        ('vectorizer', AverageWordTokenTransformer(load_fasttext_vecs()))])
     return vectorizer
 
 
 def numberbatch_vectorizer(stopwords_set=STOPWORDS_SET):
     vectorizer = Pipeline([
         ('tokenizer', TokenizeTransformer(stopwords_set=stopwords_set)),
-        ('vectorizer', AverageWordTokenTransformer(load_fasttext_vecs(top_n=200000)))])
+        ('vectorizer', AverageWordTokenTransformer(load_numberbatch_vecs()))])
     return vectorizer
 
 
@@ -134,7 +135,10 @@ def batch(iterable, size=128):
 
 
 def get_vgg19():
-    model = vgg19.VGG19(include_top=False, weights='imagenet', pooling='avg')
+    # model = vgg19.VGG19(include_top=False, weights='imagenet', pooling='avg')
+    model = vgg19.VGG19(include_top=True, weights='imagenet')
+    # layer [-3] is fc1, [-2] is fc2
+    model = Model(inputs=model.input, outputs=model.layers[-3].output)
 
     def imread(image_path):
         im = image.load_img(image_path, target_size=(224, 224))

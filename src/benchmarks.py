@@ -4,12 +4,12 @@ Run benchmarks on image and text vectors
 import click
 import tabulate
 import numpy as np
-# from utils import data_utils
-# from utils.data_utils import open_dataset
+from utils import data_utils
+from utils.data_utils import open_dataset
 from utils.data_utils import stream_json, BASE_PATH
 from sklearn.neighbors import NearestNeighbors
 
-S3_PATH = 'https://s3.amazonaws.com/...../{}'
+CLIP_RANKING = 1e4  # max number of neighbors to measure ranking benchmark
 
 
 @click.group()
@@ -29,8 +29,8 @@ def load_split_image_ids(split, dataset, encoding_name):
     return idx2img, img2idx, image_ids
 
 
-def load_idx_to_captions(split, dataset, encoding_name):
-    json_file = BASE_PATH / dataset / encoding_name /\
+def load_idx_to_captions(path, split):
+    json_file = path /\
         '{}-encoded-captions-and-images.json'.format(split)
     idx2captions = {i: image['text'] for i, image in enumerate(stream_json(json_file))}
     img2captions = {image['id']: image['text'] for image in stream_json(json_file)}
@@ -55,12 +55,20 @@ def recall_benchmarks(neighbors_model, C, top_k, ground_truth_ids, idx2img):
 
 
 def rank_benchmarks(neighbors_model, C, n_neighbors, ground_truth_ids, idx2img):
-    nearest = neighbors_model.kneighbors(C, n_neighbors=n_neighbors)[1]
+    # avoid memory errors by clipping the ranking
+    min_n_neighbors = min(n_neighbors, CLIP_RANKING)
+    
+    nearest = neighbors_model.kneighbors(C, n_neighbors=min_n_neighbors)[1]
     nearest = [[idx2img[x] for x in ni] for ni in nearest]
 
     comparable = list(zip(ground_truth_ids, nearest))
 
-    rank = [ni.index(gt) + 1 for gt, ni in comparable]
+    rank = []
+    for gt, ni in comparable:
+        if gt in ni:
+            rank.append(ni.index(gt) + 1)
+        else:
+            rank.append(n_neighbors)
 
     median_rank = np.median(rank)
     mean_rank = np.mean(rank)
@@ -68,58 +76,54 @@ def rank_benchmarks(neighbors_model, C, n_neighbors, ground_truth_ids, idx2img):
     return median_rank, mean_rank
 
 
-# def s3ify_path(dataset, f):
-#     r = S3_PATH.format(dataset)
-#     r = r + f.split(dataset)[-1]
-#     return r
-    
+def visualize_image_annotations(encoding_name, dataset, split, neighbors_model, idx2img, C,
+                                ground_truth_captions, n_neighbors=5, top_k=10):
+    image_path = open_dataset(dataset)[ground_truth_captions[0]].parents[0]
+    output_file = image_path / 'image_annotations.html'
 
-# def visualize_image_annotations(dataset, split, vectors_path, neighbors_model, idx2img, C,
-#                                 ground_truth_captions, n_neighbors=5, top_k=10):
-#     output_path = BASE_PATH / dataset / vectors_path
-#     output_file = output_path / 'image_annotations.html'
-#     idx2captions, img2captions = load_idx_to_captions(split, dataset)
+    idx2captions, img2captions = load_idx_to_captions(
+        BASE_PATH / dataset / encoding_name, split)
 
-#     nearest = neighbors_model.kneighbors(C, n_neighbors=n_neighbors)[1]
-#     nearest = [[(idx2img[x], idx2captions[x]) for x in ni] for ni in nearest]
-#     ground_truth = [(g, img2captions[g]) for g in ground_truth_captions]
-#     comparable = list(zip(ground_truth, nearest))
+    nearest = neighbors_model.kneighbors(C, n_neighbors=n_neighbors)[1]
+    nearest = [[(idx2img[x], idx2captions[x]) for x in ni] for ni in nearest]
+    ground_truth = [(g, img2captions[g]) for g in ground_truth_captions]
+    comparable = list(zip(ground_truth, nearest))
 
-#     def make_meta(c):
-#         gt = c[0]
-#         nearest = c[1]
-#         return "{} :::: {}".format(gt[1], nearest)
+    def make_meta(c):
+        gt = c[0]
+        nearest = c[1]
+        return "{} :::: {}".format(gt[1], nearest)
 
-#     paths = open_dataset(dataset)
-#     html_metadata = [(s3ify_path(dataset, paths[c[0][0]]), make_meta(c)) for c in comparable]
-#     print('Writing demo html to {}'.format(str(output_file)))
-#     data_utils.images_to_html(html_metadata[:top_k], str(output_file))
+    html_metadata = [(str(c[0][0]), make_meta(c)) for c in comparable]
+    print('Writing demo html to {}'.format(str(output_file)))
+    data_utils.images_to_html(html_metadata[:top_k], str(output_file))
 
 
-# def visualize_image_search(dataset, split, vectors_path, neighbors_model, idx2img,
-#                            C, ground_truth_image_ids, n_neighbors=5, top_k=100):
-#     output_path = BASE_PATH / dataset / vectors_path
-#     output_file = output_path / 'image_search.html'
-#     idx2captions, img2captions = load_idx_to_captions(split, dataset)
+def visualize_image_search(encoding_name, dataset, split, neighbors_model, idx2img,
+                           C, ground_truth_image_ids, n_neighbors=5, top_k=100):
+    image_path = open_dataset(dataset)[ground_truth_image_ids[0]].parents[0]
+    output_file = image_path / 'image_search.html'
 
-#     nearest = neighbors_model.kneighbors(C, n_neighbors=n_neighbors)[1]
-#     nearest = [[(idx2img[x], img2captions[idx2img[x]]) for x in ni] for ni in nearest]
-#     ground_truth_captions = [imid + ' ' + idx2captions[i] for i, imid in enumerate(ground_truth_image_ids)]
-#     comparable = list(zip(ground_truth_captions, nearest))
+    idx2captions, img2captions = load_idx_to_captions(
+        BASE_PATH / dataset / encoding_name, split)
 
-#     paths = open_dataset(dataset)
+    nearest = neighbors_model.kneighbors(C, n_neighbors=n_neighbors)[1]
+    nearest = [[(idx2img[x], img2captions[idx2img[x]]) for x in ni] for ni in nearest]
+    ground_truth_captions = [imid + ' ' + idx2captions[i] for i, imid in enumerate(ground_truth_image_ids)]
+    comparable = list(zip(ground_truth_captions, nearest))
 
-#     html_metadata = {}
-#     for i, c in enumerate(comparable):
-#         if i > top_k:
-#             break
-#         html_metadata[c[0]] = [(s3ify_path(dataset, paths[im[0]]), im) for im in c[1]]
+    html_metadata = {}
+    for i, c in enumerate(comparable):
+        if i > top_k:
+            break
+        html_metadata[c[0]] = [(im[0], im) for im in c[1]]
 
-#     print('Writing demo html to {}'.format(str(output_file)))
-#     data_utils.images_to_html_grouped_by_key(html_metadata, str(output_file))
+    print('Writing demo html to {}'.format(str(output_file)))
+    data_utils.images_to_html_grouped_by_key(html_metadata, str(output_file))
 
 
-def benchmark_func(vectors_path, dataset, encoding_name, split, X_c, Y_c):
+def benchmark_func(dataset, encoding_name, split,
+                   X_c, Y_c, distance, visualize=False):
 
     # Get indexes to a split's image ids (ground truth)
     idx2img, img2idx, image_ids = load_split_image_ids(split, dataset, encoding_name)
@@ -135,11 +139,11 @@ def benchmark_func(vectors_path, dataset, encoding_name, split, X_c, Y_c):
     sliced_idx2img = {i: img for i, img in enumerate(sliced_image_ids)}
 
     # 10 for max recall in benchmark
-    text_search = NearestNeighbors(10, algorithm='brute', metric='euclidean')
+    text_search = NearestNeighbors(10, algorithm='brute', metric=distance)
     text_search.fit(Y_c)
 
     # again, 10 for max recall in benchmark
-    image_search = NearestNeighbors(10, algorithm='brute', metric='euclidean')
+    image_search = NearestNeighbors(10, algorithm='brute', metric=distance)
     # Need unique images, so not X_c directly sincse there are several captions per image
     image_search.fit(X_c_sliced)
 
@@ -163,9 +167,11 @@ def benchmark_func(vectors_path, dataset, encoding_name, split, X_c, Y_c):
     print('Image Annotation')
     imannotation = tabulate.tabulate([image_annotation_results], headers=headers)
     print(imannotation)
-    # if vectors_path is not None:
-    #     visualize_image_annotations(dataset, split, vectors_path, text_search, idx2img,
-    #                                 X_c_sliced, sliced_image_ids)
+    
+    if visualize:
+        visualize_image_annotations(encoding_name, dataset, split,
+                                    text_search, idx2img,
+                                    X_c_sliced, sliced_image_ids)
 
     # Image search rank
     median_rank, mean_rank = rank_benchmarks(image_search, Y_c, X_c_sliced.shape[0],
@@ -174,16 +180,16 @@ def benchmark_func(vectors_path, dataset, encoding_name, split, X_c, Y_c):
     print('Image Search')
     imsearch = tabulate.tabulate([image_search_results], headers=headers)
     print(imsearch)
-    # if vectors_path is not None:
-    #     visualize_image_search(dataset, split, vectors_path, image_search, sliced_idx2img,
-    #                            Y_c, image_ids)
 
-    results = {
+    if visualize:
+        visualize_image_search(encoding_name, dataset, split,
+                               image_search, idx2img,
+                       Y_c, image_ids)
+
+    return {
         'image_search': dict(zip(headers, image_search_results)),
         'image_annotation': dict(zip(headers, image_annotation_results))
     }
-
-    return results
 
 
 @click.command()
@@ -191,13 +197,19 @@ def benchmark_func(vectors_path, dataset, encoding_name, split, X_c, Y_c):
 @click.argument('dataset')
 @click.argument('split')
 @click.argument('encoding_name')
-def run_benchmark(vectors_path, dataset, split, encoding_name):
+@click.option('--distance', default='cosine')
+@click.option('--visualize', default=False)
+def run_benchmark(vectors_path, dataset, split, encoding_name, distance, visualize):
+    """
+    Run Image Search and Immage Annotation benchmarks on a captioned image dataset.
+    You must provide encoded embeddings for images and captions stored in the vectors_path.
+    """
     vectors_path = BASE_PATH / dataset / vectors_path
 
     X_c = np.load(vectors_path / encoding_name / ('{}_X_c.npy'.format(split)))  # image
     Y_c = np.load(vectors_path / encoding_name / ('{}_Y_c.npy'.format(split)))  # text
 
-    benchmark_func(vectors_path, dataset, encoding_name, split, X_c, Y_c)
+    benchmark_func(dataset, encoding_name, split, X_c, Y_c, distance, visualize)
 
 
 cli.add_command(run_benchmark)

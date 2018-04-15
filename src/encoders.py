@@ -15,17 +15,27 @@ paths = open_dataset()
 
 @click.command()
 @click.argument('dataset')
-@click.argument('encoding-name')
-def sentence_and_image_representations(dataset, encoding_name):
+@click.argument('text-encoder')
+@click.option('--image-encoder', default='vgg19')
+def sentence_and_image_representations(dataset, text_encoder, image_encoder):
     """
     Encode both image and sentence representations into same file
     since the captions are Many-to-One for each image
     """
 
-    # vectorizer = numberbatch_vectorizer()
-    # vectorizer = fasttext_average_vectorizer(stopwords_set=stopwords_set)
-    vectorizer = word2vec_vectorizer()
-    stream_encoder, imread = get_vgg19()
+    if text_encoder == 'numberbatch':
+        vectorizer = numberbatch_vectorizer()
+    elif text_encoder == 'fasttext':
+        vectorizer = fasttext_vectorizer()
+    elif text_encoder == 'word2vec':
+        vectorizer = word2vec_vectorizer()
+    else:
+        raise NotImplementedError('{} not recognized text_encoder'.format(text_encoder))
+
+    if image_encoder == 'vgg19':
+        stream_encoder, imread = get_vgg19()
+    else:
+        raise NotImplementedError('{} not recognized image_encoder'.format(image_encoder))
 
     with (BASE_PATH / dataset / 'captions.json').open() as fin:
         captions = json.load(fin)
@@ -34,7 +44,7 @@ def sentence_and_image_representations(dataset, encoding_name):
     with (dataset_path / 'splits.json').open('r') as fin:
         images = json.load(fin)
 
-    encoding_path = BASE_PATH / dataset / encoding_name
+    encoding_path = BASE_PATH / dataset / ('{}_{}'.format(text_encoder, image_encoder))
     encoding_path.mkdir(exist_ok=True)
 
     count = 0
@@ -58,7 +68,6 @@ def sentence_and_image_representations(dataset, encoding_name):
                     if not np.any(vec):
                         continue
 
-                    # vec = (vec / np.sum(np.square(vec))).tolist()
                     print(json.dumps(
                           {'id': str(image_id),
                            'text': c,
