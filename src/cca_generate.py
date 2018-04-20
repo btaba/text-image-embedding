@@ -10,6 +10,10 @@ from benchmarks import benchmark_func
 from utils.data_utils import stream_json, BASE_PATH
 
 
+word2vec_vgg19_params = {'n_components': 130, 'center': True, 'reg': 0.01, 'regscaled': True, 'scale_by_eigs': True, 'norm': False, 'distance': 'cosine'}
+word2vec_inceptionresnetv2_params = {'regscaled': True, 'scale_by_eigs': True, 'center': True, 'n_components': 100, 'norm': False, 'distance': 'cosine', 'reg': 0.001}
+
+
 @click.group()
 def cli():
     pass
@@ -57,9 +61,9 @@ def cca_cv_fit(dataset, encoding_name):
     X_val, Y_val = load_X_Y(dataset, 'validation', encoding_name)
 
     param_grid = {
-        'n_components': [130],
+        'n_components': [75, 100, 130, 200, 300],
         'center': [True],
-        'reg': [0.01],
+        'reg': [10, 1, 0.1, 0.01, 0.001],
         'regscaled': [True],
         'scale_by_eigs': [True],
         'norm': [False],
@@ -113,15 +117,12 @@ def cca_predict(dataset, encoding_name):
 
     X, Y = load_X_Y(dataset, 'train', encoding_name)
 
-    params = {
-        'n_components': 130,
-        'center': True,
-        'reg': 0.01,
-        'regscaled': True,
-        'scale_by_eigs': True,
-        'norm': False,
-        'distance': 'cosine'
-    }
+    if encoding_name == 'word2vec_vgg19':
+        params = word2vec_vgg19_params
+    elif encoding_name == 'word2vec_inceptionresnetv2':
+        params = word2vec_inceptionresnetv2_params
+    else:
+        params = word2vec_vgg19_params
 
     m = CCA().fit(X, Y, params['n_components'], params['reg'],
                   params['center'], params['regscaled'])
@@ -133,7 +134,6 @@ def cca_predict(dataset, encoding_name):
         X_c, Y_c = m.predict(X_s, Y_s, norm=params['norm'],
                              scale_by_eigs=params['scale_by_eigs'])
         save(X_c, Y_c, split, m, dataset, encoding_name)
-
 
 
 cli.add_command(cca_cv_fit)

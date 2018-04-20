@@ -8,15 +8,15 @@ import numpy as np
 
 from utils.data_utils import BASE_PATH, open_dataset
 from utils.encoding import fasttext_vectorizer, numberbatch_vectorizer, word2vec_vectorizer
-from utils.encoding import get_vgg19
+from utils.encoding import get_vgg19, get_nasnetlarge, get_inceptionresnetv2
 
 paths = open_dataset()
 
 
 @click.command()
 @click.argument('dataset')
-@click.argument('text-encoder')
-@click.option('--image-encoder', default='vgg19')
+@click.argument('text-encoder', type=click.Choice(['numberbatch', 'fasttext', 'word2vec']))
+@click.argument('image-encoder', type=click.Choice(['vgg19', 'nasnetlarge', 'inceptionresnetv2']))
 def sentence_and_image_representations(dataset, text_encoder, image_encoder):
     """
     Encode both image and sentence representations into same file
@@ -34,6 +34,10 @@ def sentence_and_image_representations(dataset, text_encoder, image_encoder):
 
     if image_encoder == 'vgg19':
         stream_encoder, imread = get_vgg19()
+    elif image_encoder == 'nasnetlarge':
+        stream_encoder, imread = get_nasnetlarge()
+    elif image_encoder == 'inceptionresnetv2':
+        stream_encoder, imread = get_inceptionresnetv2()
     else:
         raise NotImplementedError('{} not recognized image_encoder'.format(image_encoder))
 
@@ -85,3 +89,4 @@ cli.add_command(sentence_and_image_representations)
 
 if __name__ == '__main__':
     cli()
+

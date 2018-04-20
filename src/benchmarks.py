@@ -9,7 +9,7 @@ from utils.data_utils import open_dataset
 from utils.data_utils import stream_json, BASE_PATH
 from sklearn.neighbors import NearestNeighbors
 
-CLIP_RANKING = 1e4  # max number of neighbors to measure ranking benchmark
+CLIP_RANKING = int(5e4)  # max number of neighbors to measure ranking benchmark
 
 
 @click.group()

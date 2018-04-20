@@ -10,7 +10,7 @@ from nltk.corpus import stopwords
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.pipeline import Pipeline
 from keras.preprocessing import image
-from keras.applications import vgg19
+from keras.applications import vgg19, inception_resnet_v2, nasnet
 from keras.models import Model
 
 from utils.data_utils import open_dataset, stream_json
@@ -134,16 +134,14 @@ def batch(iterable, size=128):
         yield list(chain([first], islice(iterator, size - 1)))
 
 
-def get_vgg19():
-    # model = vgg19.VGG19(include_top=False, weights='imagenet', pooling='avg')
-    model = vgg19.VGG19(include_top=True, weights='imagenet')
-    # layer [-3] is fc1, [-2] is fc2
-    model = Model(inputs=model.input, outputs=model.layers[-3].output)
+def get_image_model(module, network_func, layer, imsize):
+    model = network_func(include_top=True, weights='imagenet')
+    model = Model(inputs=model.input, outputs=model.layers[layer].output)
 
     def imread(image_path):
-        im = image.load_img(image_path, target_size=(224, 224))
+        im = image.load_img(image_path, target_size=imsize)
         im = image.img_to_array(im)
-        im = vgg19.preprocess_input(im)
+        im = module.preprocess_input(im)
         return im
 
     def predict_stream(strm):
@@ -151,3 +149,18 @@ def get_vgg19():
             yield from model.predict(np.array(ims))
 
     return predict_stream, imread
+
+
+def get_vgg19():
+    # layer [-3] is fc1, [-2] is fc2
+    return get_image_model(vgg19, vgg19.VGG19, -3, (224, 224))
+
+
+def get_nasnetlarge():
+    return get_image_model(nasnet, nasnet.NASNetLarge, -2, (331, 331))
+
+
+def get_inceptionresnetv2():
+    return get_image_model(inception_resnet_v2,
+                           inception_resnet_v2.InceptionResNetV2, -2, (299, 299))
+
