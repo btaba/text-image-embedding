@@ -21,7 +21,7 @@ EMBEDDING_PATHS = open_dataset('word-embeddings')
 
 
 def load_fasttext_vecs(f='wiki-news-300d-1M-subword.vec.json.txt',
-                       top_n=100000):
+                       top_n=2000000):
     
     word_vecs = {}
     for idx, line in enumerate(stream_json(EMBEDDING_PATHS[f])):
@@ -134,9 +134,18 @@ def batch(iterable, size=128):
         yield list(chain([first], islice(iterator, size - 1)))
 
 
-def get_image_model(module, network_func, layer, imsize):
-    model = network_func(include_top=True, weights='imagenet')
-    model = Model(inputs=model.input, outputs=model.layers[layer].output)
+def get_image_model(module, network_class, layer, imsize, predict_classes=False):
+    """
+    :param module: the network keras module
+    :param network_class: the network class
+    :param layer: int, the representation layer
+    :param imsize: tuple
+    :param predict_classes: bool, predict representation or text classes
+    """
+    model = network_class(include_top=True, weights='imagenet')
+
+    if not predict_classes:
+        model = Model(inputs=model.input, outputs=model.layers[layer].output)
 
     def imread(image_path):
         im = image.load_img(image_path, target_size=imsize)
@@ -146,7 +155,12 @@ def get_image_model(module, network_func, layer, imsize):
 
     def predict_stream(strm):
         for ims in batch(strm):
-            yield from model.predict(np.array(ims))
+            if not predict_classes:
+                yield from model.predict(np.array(ims))
+            else:
+                preds = model.predict(np.array(ims))
+                labels = module.decode_predictions(preds)
+                yield from [[l[1] for l in label] for label in labels]
 
     return predict_stream, imread
 
@@ -164,3 +178,8 @@ def get_inceptionresnetv2():
     return get_image_model(inception_resnet_v2,
                            inception_resnet_v2.InceptionResNetV2, -2, (299, 299))
 
+
+def get_inceptionresnetv2_tagger():
+    return get_image_model(inception_resnet_v2,
+                           inception_resnet_v2.InceptionResNetV2, -2, (299, 299),
+                           predict_classes=True)

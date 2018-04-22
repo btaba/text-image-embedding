@@ -4,14 +4,19 @@ Generate joint embeddings using CCA.
 
 import click
 import numpy as np
-# from sklearn.externals import joblib
 from sklearn.model_selection import ParameterGrid
 from benchmarks import benchmark_func
 from utils.data_utils import stream_json, BASE_PATH
 
-
-word2vec_vgg19_params = {'n_components': 130, 'center': True, 'reg': 0.01, 'regscaled': True, 'scale_by_eigs': True, 'norm': False, 'distance': 'cosine'}
-word2vec_inceptionresnetv2_params = {'regscaled': True, 'scale_by_eigs': True, 'center': True, 'n_components': 100, 'norm': False, 'distance': 'cosine', 'reg': 0.001}
+# cross-validated parameters for each encoder using `cca_cv_fit`
+param_dict = {
+    'word2vec_vgg19': {'n_components': 130, 'center': True, 'reg': 0.01, 'regscaled': True, 'scale_by_eigs': True, 'norm': False, 'distance': 'cosine'},
+    'word2vec_inceptionresnetv2': {'regscaled': True, 'scale_by_eigs': True, 'center': True, 'n_components': 100, 'norm': False, 'distance': 'cosine', 'reg': 0.001},
+    'word2vec_nasnetlarge': {'regscaled': True, 'scale_by_eigs': True, 'center': True, 'n_components': 300, 'norm': False, 'distance': 'cosine', 'reg': 0.005},
+    'fasttext_vgg19': {'regscaled': True, 'scale_by_eigs': True, 'center': True, 'n_components': 130, 'norm': False, 'distance': 'cosine', 'reg': 0.01},
+    'numberbatch_vgg19': {'distance': 'cosine', 'n_components': 200, 'reg': 0.01, 'scale_by_eigs': True, 'norm': False, 'center': True, 'regscaled': True},
+    'numberbatch_inceptionresnetv2': {'regscaled': True, 'scale_by_eigs': True, 'n_components': 200, 'norm': False, 'center': True, 'distance': 'cosine', 'reg': 0.001}
+}
 
 
 @click.group()
@@ -28,9 +33,9 @@ def load_X_Y(dataset, split, encoding_name):
     return np.array(X), np.array(Y)
 
 
-def save(X_c, Y_c, split, model, dataset, encoding_name):
+def save(X_c, Y_c, split, model, dataset, encoding_name, model_name='cca'):
     """Save the encoded components and the model."""
-    path = BASE_PATH / dataset / 'cca' / encoding_name
+    path = BASE_PATH / dataset / model_name / encoding_name
   
     path.mkdir(exist_ok=True, parents=True)
 
@@ -117,12 +122,7 @@ def cca_predict(dataset, encoding_name):
 
     X, Y = load_X_Y(dataset, 'train', encoding_name)
 
-    if encoding_name == 'word2vec_vgg19':
-        params = word2vec_vgg19_params
-    elif encoding_name == 'word2vec_inceptionresnetv2':
-        params = word2vec_inceptionresnetv2_params
-    else:
-        params = word2vec_vgg19_params
+    params = param_dict[encoding_name]
 
     m = CCA().fit(X, Y, params['n_components'], params['reg'],
                   params['center'], params['regscaled'])

@@ -54,12 +54,13 @@ def recall_benchmarks(neighbors_model, C, top_k, ground_truth_ids, idx2img):
     return average_recall
 
 
-def rank_benchmarks(neighbors_model, C, n_neighbors, ground_truth_ids, idx2img):
+def rank_benchmarks(neighbors_model, C, n_neighbors,
+                    ground_truth_ids, idx2img, nearest_index_start=0):
     # avoid memory errors by clipping the ranking
     min_n_neighbors = min(n_neighbors, CLIP_RANKING)
     
     nearest = neighbors_model.kneighbors(C, n_neighbors=min_n_neighbors)[1]
-    nearest = [[idx2img[x] for x in ni] for ni in nearest]
+    nearest = [[idx2img[x] for x in ni[nearest_index_start:]] for ni in nearest]
 
     comparable = list(zip(ground_truth_ids, nearest))
 
@@ -120,6 +121,20 @@ def visualize_image_search(encoding_name, dataset, split, neighbors_model, idx2i
 
     print('Writing demo html to {}'.format(str(output_file)))
     data_utils.images_to_html_grouped_by_key(html_metadata, str(output_file))
+
+
+def nn_rank_word_vectors(dataset, encoding_name, split, Y_c):
+    """
+    Rank nearest neighbor word vector rankings for captions
+    """
+    # Get indexes to a split's image ids (ground truth)
+    idx2img, img2idx, image_ids = load_split_image_ids(split, dataset, encoding_name)
+    text_search = NearestNeighbors(10, algorithm='brute', metric='cosine')
+    text_search.fit(Y_c)
+    median, mean = rank_benchmarks(
+        text_search, Y_c, Y_c.shape[0], image_ids, idx2img,
+        nearest_index_start=1)
+    print('median: {}, mean: {}'.format(median, mean))
 
 
 def benchmark_func(dataset, encoding_name, split,
@@ -184,7 +199,7 @@ def benchmark_func(dataset, encoding_name, split,
     if visualize:
         visualize_image_search(encoding_name, dataset, split,
                                image_search, idx2img,
-                       Y_c, image_ids)
+                               Y_c, image_ids)
 
     return {
         'image_search': dict(zip(headers, image_search_results)),
