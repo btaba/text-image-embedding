@@ -17,6 +17,8 @@ param_dict = {
     'numberbatch_vgg19': {'distance': 'cosine', 'n_components': 200, 'reg': 0.01, 'scale_by_eigs': True, 'norm': False, 'center': True, 'regscaled': True},
     'numberbatch_inceptionresnetv2': {'regscaled': True, 'scale_by_eigs': True, 'n_components': 200, 'norm': False, 'center': True, 'distance': 'cosine', 'reg': 0.001}
 }
+# # MSCOCO word2vec_vgg19 params
+# params = {'n_components': 200, 'norm': False, 'regscaled': True, 'reg': 0.001, 'center': True, 'distance': 'cosine', 'scale_by_eigs': True}
 
 
 @click.group()
@@ -28,9 +30,11 @@ def load_X_Y(dataset, split, encoding_name):
     json_file = BASE_PATH / dataset / encoding_name /\
         ('%s-encoded-captions-and-images.json' % split)
 
-    X = [i['x_image'] for i in stream_json(json_file)]
-    Y = [i['x_text'] for i in stream_json(json_file)]
-    return np.array(X), np.array(Y)
+    X = [np.array(i['x_image'], dtype=np.float32) for i in stream_json(json_file)]
+    X = np.array(X)
+    Y = [np.array(i['x_text'], dtype=np.float32) for i in stream_json(json_file)]
+    Y = np.array(Y)
+    return X, Y
 
 
 def save(X_c, Y_c, split, model, dataset, encoding_name, model_name='cca'):

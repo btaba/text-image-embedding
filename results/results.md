@@ -79,6 +79,25 @@ To generate the benchmarks, we did the following:
 # MS COCO 2014
 
 
+## Image Search
+
+
+|       | R@1 | R@5 | R@10 | Median Rank | Mean Rank |
+|-------|-----|-----|------|-------------|-----------|
+| CCA Mean Vec [1] | 10.3 | 27.2 | 38.4 | 18 | 64.7 |
+| Our CCA - Mean word2vec_vgg19 | 8.3 | 22.8 | 32.7 | 25 | 85.8 |
+|  |  |  |  |  |  |
+
+
+## Image Annotation
+
+
+|       | R@1 | R@5 | R@10 | Median Rank | Mean Rank |
+|-------|-----|-----|------|-------------|-----------|
+| CCA Mean Vec [1] | 12.8 | 32.1 | 44.6 | 14 | 62.2 |
+| Our CCA - Mean word2vec_vgg19 | 10.3 | 26.5 | 37.2 | 21 | 98.6 |
+|  |  |  |  |  |  |
+
 
 # References
 

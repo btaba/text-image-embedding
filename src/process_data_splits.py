@@ -83,10 +83,10 @@ def flickr30k():
 
 
 def mscoco():
-    print('Processing MSCOC')
+    print('Processing MSCOCO')
 
     # Captions
-    all_images = []
+    all_images = set()
     captions = defaultdict(dict)
     for split in ['val', 'train']:
 
@@ -96,7 +96,7 @@ def mscoco():
 
         for c in split_captions['annotations']:
             image_id = 'COCO_{}2014_{:012d}.jpg'.format(split, c['image_id'])
-            all_images.append(image_id)
+            all_images.add(image_id)
             caption = c['caption']
             idx = c['id']
             captions[image_id][idx] = caption
@@ -110,6 +110,7 @@ def mscoco():
     # then he does this https://github.com/karpathy/neuraltalk2/blob/master/prepro.py#L97
     # takes first 5k images as val, then 5k test, then train
     # first 5k is val, next 5k is test, then train
+    all_images = list(all_images)
     splits = defaultdict(list)
     for idx, i in enumerate(all_images):
         if idx < 5000:
@@ -128,7 +129,7 @@ def mscoco():
     with (BASE_PATH / 'mscoco' / 'more_sensible_splits.json').open('w') as f:
         json.dump(splits, f)
 
-    print('Done with MSCOC')
+    print('Done with MSCOCO')
 
 
 if __name__ == '__main__':
