@@ -8,6 +8,7 @@ from utils import data_utils
 from utils.data_utils import open_dataset
 from utils.data_utils import stream_json, BASE_PATH
 from sklearn.neighbors import NearestNeighbors
+from scipy.spatial.distance import cosine
 
 CLIP_RANKING = int(5e4)  # max number of neighbors to measure ranking benchmark
 
@@ -125,20 +126,42 @@ def visualize_image_search(encoding_name, dataset, split, neighbors_model, idx2i
 
 def nn_rank_word_vectors(dataset, encoding_name, split, Y_c):
     """
-    Rank nearest neighbor word vector rankings for captions
+    Get the nearest neighbor ranking of captions with themselves
+    since there are ~5 captions per image we can match to.
     """
-    # Get indexes to a split's image ids (ground truth)
     idx2img, img2idx, image_ids = load_split_image_ids(split, dataset, encoding_name)
     text_search = NearestNeighbors(10, algorithm='brute', metric='cosine')
     text_search.fit(Y_c)
     median, mean = rank_benchmarks(
         text_search, Y_c, Y_c.shape[0], image_ids, idx2img,
         nearest_index_start=1)
+    print('Nearest neighbor caption rankings for text vectors:')
     print('median: {}, mean: {}'.format(median, mean))
 
 
+def nn_rank_image_vectors(dataset, encoding_name, split, image_search,
+                          X_c_sliced, sliced_idx2img, idx2img, img2idx,
+                          sliced_image_ids, Y_c):
+
+    # get the nearest images, and score them by caption similarity
+    # this is to measure how effective the image vectors are able
+    # to get similar images according to the words in the captions.
+    
+    nearest = image_search.kneighbors(X_c_sliced, n_neighbors=10)[1]
+    nearest = [[img2idx[sliced_idx2img[x]] for x in ni[1:]] for ni in nearest]
+    nearest_vecs = [np.mean([Y_c[nidx] for nidx in n], axis=0) for n in nearest]
+
+    ground_truth_caption_vecs = [Y_c[img2idx[s]] for s in sliced_image_ids]
+
+    sims = [cosine(gt, n) for gt, n in zip(ground_truth_caption_vecs, nearest_vecs)]
+
+    print('Nearest neighbor images - caption similarity')
+    print('Avg similarity: {} , stddev: {}'.format(np.mean(sims), np.std(sims)))
+
+
 def benchmark_func(dataset, encoding_name, split,
-                   X_c, Y_c, distance, visualize=False):
+                   X_c, Y_c, distance, visualize=False,
+                   vector_ranking_metrics=False):
 
     # Get indexes to a split's image ids (ground truth)
     idx2img, img2idx, image_ids = load_split_image_ids(split, dataset, encoding_name)
@@ -201,6 +224,15 @@ def benchmark_func(dataset, encoding_name, split,
                                image_search, idx2img,
                                Y_c, image_ids)
 
+    if vector_ranking_metrics:
+        # How well do the text vectors rank captions for the same images?
+        nn_rank_word_vectors(dataset, encoding_name, split, Y_c)
+
+        # How well do the image vectors match caption similarity?
+        nn_rank_image_vectors(dataset, encoding_name, split, image_search,
+                              X_c_sliced, sliced_idx2img, idx2img, img2idx,
+                              sliced_image_ids, Y_c)
+
     return {
         'image_search': dict(zip(headers, image_search_results)),
         'image_annotation': dict(zip(headers, image_annotation_results))
@@ -214,17 +246,26 @@ def benchmark_func(dataset, encoding_name, split,
 @click.argument('encoding_name')
 @click.option('--distance', default='cosine')
 @click.option('--visualize', default=False)
-def run_benchmark(vectors_path, dataset, split, encoding_name, distance, visualize):
+@click.option('--vector-ranking-metrics', default=False)
+def run_benchmark(vectors_path, dataset, split, encoding_name,
+                  distance, visualize, vector_ranking_metrics):
     """
     Run Image Search and Immage Annotation benchmarks on a captioned image dataset.
     You must provide encoded embeddings for images and captions stored in the vectors_path.
+    :param vectors_path: str, the path to the type of joint embedding, i.e. `cca`
+    :param dataset: str, flickr30k_images of flickr8k or mscoco
+    :param split: str, train/test/validation
+    :param encoding_name: str, the name of the encoding
+    :param vector_ranking_metrics: bool, whether to print extra metrics about the
+        encodings used
     """
     vectors_path = BASE_PATH / dataset / vectors_path
 
     X_c = np.load(vectors_path / encoding_name / ('{}_X_c.npy'.format(split)))  # image
     Y_c = np.load(vectors_path / encoding_name / ('{}_Y_c.npy'.format(split)))  # text
 
-    benchmark_func(dataset, encoding_name, split, X_c, Y_c, distance, visualize)
+    benchmark_func(dataset, encoding_name, split, X_c, Y_c,
+                   distance, visualize, vector_ranking_metrics)
 
 
 cli.add_command(run_benchmark)
